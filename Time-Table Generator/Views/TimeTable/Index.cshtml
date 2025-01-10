@@ -1,0 +1,187 @@
+﻿@model UserInputModel
+@{
+	ViewData["Title"] = "TimeTable - Basic Input";
+}
+<link href="https://cdn.jsdelivr.net/npm/bootstrap@5.0.2/dist/css/bootstrap.min.css"
+	  rel="stylesheet" crossorigin="anonymous">
+<style>
+	label.error {
+		color: red;
+		font-size: 0.9em;
+	}
+</style>
+
+<h2>Enter Time-Table Basic Info</h2>
+
+<form id="timeTableForm" action="/TimeTable/GenerateTimeTable" method="post">
+	<input type="hidden" id="CommaSeparatedSubjectNames" name="CommaSeparatedSubjectNames" />
+	<input type="hidden" id="CommaSeparatedSubjectHours" name="CommaSeparatedSubjectHours" />
+	<input type="hidden" id="DynamicTimeTable" name="DynamicTimeTable" />
+
+	<div class="form-group">
+		<label for="NoOfWorkingDays">No. of Working Days:</label>
+		<input type="number" id="NoOfWorkingDays" name="NoOfWorkingDays" class="form-control" />
+	</div>
+
+	<div class="form-group">
+		<label for="NoOfSubjectsPerDay">No. of Subjects per Day:</label>
+		<input type="number" id="NoOfSubjectsPerDay" name="NoOfSubjectsPerDay" class="form-control" />
+	</div>
+
+	<div class="form-group">
+		<label for="TotalHoursForWeek">Total Subject Hours:</label>
+		<input type="number" id="TotalHoursForWeek" name="TotalHoursForWeek" class="form-control" readonly />
+	</div>
+
+	<button type="button" id="btnNext" class="btn btn-primary mt-3">Next</button>
+
+	<div id="subjectInputsContainer" class="subjects-container mt-4" style="display: none;">
+		<h3>Enter Subject Names & Hours (Dynamically Added)</h3>
+
+		<table id="subjectsTable" class="table table-bordered">
+			<thead>
+				<tr>
+					<th>Subject Name</th>
+					<th>Subject Hours</th>
+				</tr>
+			</thead>
+			<tbody>
+				<!-- Rows will be injected here dynamically -->
+			</tbody>
+		</table>
+
+		<div class="form-group">
+			<label for="totalWorkingHours">Total Working Hours for the Week:</label>
+			<input type="number" id="totalWorkingHours" class="form-control" readonly />
+		</div>
+
+		<button type="button" id="btnGenerate" class="btn btn-success mt-3">Generate TimeTable</button>
+	</div>
+</form>
+
+@section Scripts {
+    <script src="https://code.jquery.com/jquery-3.6.4.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/jquery-validation@1.19.5/dist/jquery.validate.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/jquery-validation-unobtrusive@3.2.12/dist/jquery.validate.unobtrusive.min.js"></script>
+
+    <script>
+        $(document).ready(function () {
+            $("#timeTableForm").validate({
+                rules: {
+                    NoOfWorkingDays: {
+                        required: true,
+                        range: [1, 7]
+                    },
+                    NoOfSubjectsPerDay: {
+                        required: true,
+                        range: [1, 8]
+                    }
+                },
+                messages: {
+                    NoOfWorkingDays: {
+                        required: "Working days is required.",
+                        range: "Working days must be between 1 and 7."
+                    },
+                    NoOfSubjectsPerDay: {
+                        required: "Subjects per day is required.",
+                        range: "Subjects per day must be between 1 and 8."
+                    }
+                },
+                errorPlacement: function (error, element) {
+                    error.appendTo(element.closest("div.form-group"));
+                }
+            });
+
+            // Function to recalculate total subject hours
+            function recalcTotalHours() {
+                var workingDays = parseInt($("#NoOfWorkingDays").val()) || 0;
+                var subjectsPerDay = parseInt($("#NoOfSubjectsPerDay").val()) || 0;
+                var total = workingDays * subjectsPerDay;
+                $("#TotalHoursForWeek").val(total);
+            }
+
+            // Trigger recalculation when either field changes
+            $("#NoOfWorkingDays, #NoOfSubjectsPerDay").on("input", function () {
+                recalcTotalHours();
+            });
+
+            // Generate table rows on the "Next" button click
+            $("#btnNext").on("click", function () {
+                if ($("#timeTableForm").valid()) {
+                    var subjectsCount = parseInt($("#NoOfSubjectsPerDay").val(), 10);
+
+                    // Clear out old content in the table body, if any
+                    $("#subjectsTable tbody").empty();
+                    $("#subjectInputsContainer").show();
+
+                    // Dynamically add rows for each subject
+                    for (var i = 1; i <= subjectsCount; i++) {
+                        var row = $("<tr>");
+
+                        // Subject Name column
+                        var subjectNameCol = $("<td>").append($("<input>").attr("type", "text").attr("name", "SubjectName" + i).attr("placeholder", "Enter subject name " + i).addClass("form-control"));
+
+                        // Subject Hours column
+                        var subjectHoursCol = $("<td>").append($("<input>").attr("type", "number").attr("name", "SubjectHours" + i).attr("placeholder", "Enter hours for subject " + i).addClass("form-control"));
+
+                        row.append(subjectNameCol).append(subjectHoursCol);
+                        $("#subjectsTable tbody").append(row);
+                    }
+                } else {
+                    console.log("Validation failed, fix errors first!");
+                }
+            });
+
+            // Update total working hours when subject hours change
+            $(document).on('input', 'input[name^="SubjectHours"]', function () {
+                let val = parseInt($(this).val());
+
+                // If it's a valid integer AND less than zero, reset it to empty
+                if (!isNaN(val) && val < 0) {
+                    $(this).val("");
+                }
+                else{
+                    $(this).val(Math.round(val));
+                }
+
+                // Recalculate the total
+                let totalWorkingHours = 0;
+                $('input[name^="SubjectHours"]').each(function () {
+                    // Safely parse each input's value (default to 0 if empty or invalid)
+                    totalWorkingHours += parseInt($(this).val()) || 0;
+                });
+
+                // Show the new total
+                $("#totalWorkingHours").val(totalWorkingHours);
+            });
+
+            // Validate and generate timetable on button click
+            $("#btnGenerate").on("click", function () {
+                var totalSubjectHours = parseInt($("#TotalHoursForWeek").val()) || 0;
+                var totalWorkingHours = parseInt($("#totalWorkingHours").val()) || 0;
+
+                if (totalSubjectHours !== totalWorkingHours) {
+                    alert("The total subject hours do not match the total working hours for the week. Please check the hours.");
+                } else {
+                    // Proceed to set the comma-separated values in the hidden fields
+                    var subjectNames = [];
+                    var subjectHours = [];
+
+                    $('input[name^="SubjectName"]').each(function () {
+                        subjectNames.push($(this).val());
+                    });
+
+                    $('input[name^="SubjectHours"]').each(function () {
+                        subjectHours.push($(this).val());
+                    });
+
+                    // Set the comma-separated values in the hidden fields
+                    $("#CommaSeparatedSubjectNames").val(subjectNames.join(","));
+                    $("#CommaSeparatedSubjectHours").val(subjectHours.join(","));
+
+                    $("#timeTableForm").submit();
+                }
+            });
+        });
+    </script>
+}
