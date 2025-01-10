@@ -1,0 +1,51 @@
+﻿@model UserInputModel
+
+@{
+	ViewData["Title"] = "Final Generated Timetable";
+}
+
+<div class="container mt-4">
+	<div class="row">
+		<div class="col">
+			<h2 class="mb-4">Final Generated Timetable</h2>
+
+			@if (Model.DynamicTimeTable != null && Model.DynamicTimeTable.Any())
+			{
+				<table class="table table-bordered table-hover table-striped">
+					<thead class="table-dark">
+						<tr>
+							<!-- Create a column header for each working day -->
+							@for (int day = 1; day <= Model.NoOfWorkingDays; day++)
+							{
+								<th scope="col">Day @day</th>
+							}
+						</tr>
+					</thead>
+					<tbody>
+						@for (int r = 0; r < Model.NoOfSubjectsPerDay; r++)
+						{
+							<tr>
+								@{
+									// Example cell data: "Gujarati | Maths | Science | Science | Gujarati"
+									var cells = Model.DynamicTimeTable[r].Split('|');
+									foreach (var cell in cells)
+									{
+										<td>@cell.Trim()</td>
+									}
+								}
+							</tr>
+						}
+					</tbody>
+				</table>
+			}
+			else
+			{
+				<div class="alert alert-info" role="alert">
+					No timetable data found.
+				</div>
+			}
+		</div>
+
+	</div>
+		@Html.ActionLink("Regenerate Timetable", "Index", "TimeTable", null, new { @class = "btn btn-primary col-3" })
+</div>
